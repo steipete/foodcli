@@ -99,7 +99,8 @@ func OAuthTokenPassword(ctx context.Context, req foodora.OAuthPasswordRequest, o
 	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(cmdCtx, "npx", "-y", "-p", pw, "node", scriptPath) //nolint:gosec
+	// Use `-c` so Node can resolve the `playwright` package installed via `-p`.
+	cmd := exec.CommandContext(cmdCtx, "npx", "-y", "-p", pw, "-c", "node "+scriptPath) //nolint:gosec
 	cmd.Env = append(os.Environ(),
 		"FOODCLI_OUTPUT_PATH="+outPath,
 		"FOODORACLI_OUTPUT_PATH="+outPath, // legacy
