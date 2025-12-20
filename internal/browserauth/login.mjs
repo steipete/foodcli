@@ -34,6 +34,37 @@ function isHTML(status, headers, body) {
   return b.startsWith('<!DOCTYPE html') || b.startsWith('<html');
 }
 
+function tryParseJSON(body) {
+  try {
+    return JSON.parse(body);
+  } catch {
+    return null;
+  }
+}
+
+function isPerimeterXBlocked(status, headers, body) {
+  if (status !== 403) return false;
+  const ct = (headers['content-type'] || '').toLowerCase();
+  if (!ct.includes('application/json')) return false;
+  const obj = tryParseJSON(body);
+  return !!(obj && (obj.appId || obj.app_id) && (obj.blockScript || obj.altBlockScript));
+}
+
+function perimeterXBlockURL(baseURL, body) {
+  const obj = tryParseJSON(body);
+  if (!obj) return '';
+  const baseOrigin = new URL(baseURL).origin;
+  const rel = obj.blockScript;
+  if (typeof rel === 'string' && rel.startsWith('/')) {
+    return new URL(rel, baseOrigin).toString();
+  }
+  const alt = obj.altBlockScript;
+  if (typeof alt === 'string' && alt.startsWith('http')) {
+    return alt;
+  }
+  return '';
+}
+
 const input = await readStdinJSON();
 const timeoutMillis = Math.max(10_000, Number(input.timeout_millis || 0));
 const deadline = Date.now() + timeoutMillis;
@@ -44,7 +75,8 @@ const page = await context.newPage();
 
 try {
   // Intentional: let the user complete any Cloudflare/PerimeterX checks in a real browser.
-  await page.goto(input.base_url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  // Use origin (not /api/v5/) so challenge pages can render.
+  await page.goto(new URL(input.base_url).origin, { waitUntil: 'domcontentloaded' }).catch(() => {});
 
   const url = oauthURL(input.base_url);
 
@@ -73,10 +105,14 @@ try {
     const headers = res.headers();
     const body = await res.text();
 
-    if (isHTML(status, headers, body)) {
+    if (isHTML(status, headers, body) || isPerimeterXBlocked(status, headers, body)) {
       if (Date.now() - lastLog > 5000) {
         lastLog = Date.now();
         process.stderr.write('waiting for browser clearance (solve the challenge in the opened window)...\n');
+      }
+      const pxURL = perimeterXBlockURL(input.base_url, body);
+      if (pxURL) {
+        await page.goto(pxURL, { waitUntil: 'domcontentloaded' }).catch(() => {});
       }
       await sleep(1500);
       continue;
