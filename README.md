@@ -9,6 +9,12 @@ Concepts (shared CLI UX; provider-specific implementations):
 - `orders` (active orders)
 - `order` / `history show` (details)
 
+Config lives in your OS config dir by default; override for testing:
+
+```sh
+./ordercli --config /tmp/ordercli.json foodora config show
+```
+
 ## Build
 
 ```sh
@@ -112,7 +118,9 @@ If `session refresh` errors with “refresh token … not found”, that site se
 ./ordercli foodora history
 ./ordercli foodora history --limit 50
 ./ordercli foodora history show <orderCode>
+./ordercli foodora history show <orderCode> --json
 ./ordercli foodora order <orderCode>
+./ordercli foodora logout
 ```
 
 ### Reorder (add to cart)
@@ -137,12 +145,14 @@ If you have multiple saved addresses, you must pick one:
 
 ## deliveroo (WIP)
 
-Requires a valid bearer token (no bypass):
+Requires a valid bearer token (no bypass). Optional cookie for extra auth.
 
 ```sh
 export DELIVEROO_BEARER_TOKEN='...'
+export DELIVEROO_COOKIE='...' # optional
+./ordercli deliveroo config set --market uk
 ./ordercli deliveroo history
-./ordercli deliveroo orders
+./ordercli deliveroo orders # best-effort: history --state active
 ```
 
 ## Safety
