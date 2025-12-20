@@ -83,7 +83,7 @@ type OrderHistoryResponse struct {
 }
 
 type OrderHistoryData struct {
-	TotalCount int                `json:"total_count"`
+	TotalCount FlexibleInt        `json:"total_count"`
 	Items      []OrderHistoryItem `json:"items"`
 }
 
@@ -101,9 +101,9 @@ type OrderHistoryVendor struct {
 }
 
 type OrderHistoryStatus struct {
-	Code               string `json:"code"`
-	Message            string `json:"message"`
-	InternalStatusCode string `json:"internal_status_code"`
+	Code               FlexibleString `json:"code"`
+	Message            string         `json:"message"`
+	InternalStatusCode FlexibleString `json:"internal_status_code"`
 }
 
 type OrderHistoryTime struct {

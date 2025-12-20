@@ -73,7 +73,7 @@ func newHistoryCmd(st *state) *cobra.Command {
 				}
 
 				offset += len(resp.Data.Items)
-				if resp.Data.TotalCount > 0 && offset >= resp.Data.TotalCount {
+				if resp.Data.TotalCount > 0 && offset >= int(resp.Data.TotalCount) {
 					return nil
 				}
 				if len(resp.Data.Items) < reqLimit {
@@ -107,9 +107,9 @@ func historyStatus(s *foodora.OrderHistoryStatus) string {
 		return s.Message
 	}
 	if s.Code != "" {
-		return s.Code
+		return string(s.Code)
 	}
-	return s.InternalStatusCode
+	return string(s.InternalStatusCode)
 }
 
 func historyTime(t *foodora.OrderHistoryTime) string {
