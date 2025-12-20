@@ -49,7 +49,7 @@ func newSessionChromeCmd(st *state) *cobra.Command {
 			}
 
 			cacheDir := filepath.Join(filepath.Dir(st.configPath), "chrome-cookies")
-			res, err := chromecookies.LoadCookieHeader(cmd.Context(), chromecookies.Options{
+			res, err := chromeLoadCookieHeader(cmd.Context(), chromecookies.Options{
 				TargetURL:          strings.TrimSpace(url),
 				ChromeProfile:      profile,
 				ExplicitCookiePath: cookiePath,

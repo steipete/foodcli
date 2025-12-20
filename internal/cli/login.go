@@ -213,7 +213,7 @@ func oauthPassword(ctx context.Context, st *state, cmd *cobra.Command, browser b
 		if profileDir == "" {
 			profileDir = filepath.Join(filepath.Dir(st.configPath), "browser-profile")
 		}
-		tok, mfa, sess, err := browserauth.OAuthTokenPassword(ctx, req, browserauth.PasswordOptions{
+		tok, mfa, sess, err := browserOAuthTokenPassword(ctx, req, browserauth.PasswordOptions{
 			BaseURL:   cfg.BaseURL,
 			DeviceID:  cfg.DeviceID,
 			Timeout:   10 * time.Minute,

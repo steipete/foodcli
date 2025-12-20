@@ -65,13 +65,6 @@ func OAuthTokenPassword(ctx context.Context, req foodora.OAuthPasswordRequest, o
 		pw = "playwright@1.50.0"
 	}
 
-	if _, err := exec.LookPath("node"); err != nil {
-		return foodora.AuthToken{}, nil, Session{}, errors.New("browserauth: node not found")
-	}
-	if _, err := exec.LookPath("npm"); err != nil {
-		return foodora.AuthToken{}, nil, Session{}, errors.New("browserauth: npm not found")
-	}
-
 	td, err := os.MkdirTemp("", "ordercli-browserauth-*")
 	if err != nil {
 		return foodora.AuthToken{}, nil, Session{}, err
@@ -99,71 +92,9 @@ func OAuthTokenPassword(ctx context.Context, req foodora.OAuthPasswordRequest, o
 	}
 	b, _ := json.Marshal(in)
 
-	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	install := exec.CommandContext(cmdCtx, "npm", "install", "--silent", "--no-progress", "--no-fund", "--no-audit", pw) //nolint:gosec
-	install.Dir = td
-	install.Stdout = io.Discard
-	if opts.LogWriter != nil {
-		install.Stderr = opts.LogWriter
-	} else {
-		install.Stderr = io.Discard
-	}
-	install.Env = append(os.Environ(),
-		"npm_config_loglevel=error",
-	)
-	if err := install.Run(); err != nil {
-		return foodora.AuthToken{}, nil, Session{}, fmt.Errorf("browserauth: npm install %s: %w", pw, err)
-	}
-
-	playwrightBin := filepath.Join(td, "node_modules", ".bin", "playwright")
-	if runtime.GOOS == "windows" {
-		playwrightBin += ".cmd"
-	}
-	installBrowsers := exec.CommandContext(cmdCtx, playwrightBin, "install", "chromium") //nolint:gosec
-	installBrowsers.Dir = td
-	installBrowsers.Stdout = io.Discard
-	if opts.LogWriter != nil {
-		installBrowsers.Stderr = opts.LogWriter
-	} else {
-		installBrowsers.Stderr = io.Discard
-	}
-	installBrowsers.Env = append(os.Environ(),
-		"npm_config_loglevel=error",
-	)
-	if err := installBrowsers.Run(); err != nil {
-		return foodora.AuthToken{}, nil, Session{}, fmt.Errorf("browserauth: playwright install chromium: %w", err)
-	}
-
-	cmd := exec.CommandContext(cmdCtx, "node", scriptPath) //nolint:gosec
-	cmd.Dir = td
-	cmd.Env = append(os.Environ(),
-		"ORDERCLI_OUTPUT_PATH="+outPath,
-		"FOODCLI_OUTPUT_PATH="+outPath,
-		"FOODORACLI_OUTPUT_PATH="+outPath, // legacy
-		"npm_config_loglevel=error",
-	)
-	cmd.Stdin = bytes.NewReader(b)
-	cmd.Stdout = io.Discard
-	if opts.LogWriter != nil {
-		cmd.Stderr = opts.LogWriter
-	} else {
-		cmd.Stderr = io.Discard
-	}
-
-	if err := cmd.Run(); err != nil {
-		return foodora.AuthToken{}, nil, Session{}, fmt.Errorf("browserauth: node run: %w", err)
-	}
-
-	ob, err := os.ReadFile(outPath)
+	out, err := runAuthScript(ctx, td, scriptPath, outPath, b, opts, timeout, pw)
 	if err != nil {
-		return foodora.AuthToken{}, nil, Session{}, fmt.Errorf("browserauth: missing output: %w", err)
-	}
-
-	var out scriptOutput
-	if err := json.Unmarshal(ob, &out); err != nil {
-		return foodora.AuthToken{}, nil, Session{}, fmt.Errorf("browserauth: decode output: %w", err)
+		return foodora.AuthToken{}, nil, Session{}, err
 	}
 
 	sess := Session{
@@ -218,9 +149,14 @@ type scriptOutput struct {
 	UserAgent    string            `json:"user_agent"`
 }
 
+var runAuthScript = runAuthScriptReal
+
 func newOAuthTokenURL(baseURL string) string {
 	u, err := url.Parse(baseURL)
 	if err != nil {
+		return baseURL
+	}
+	if u.Scheme == "" || u.Host == "" {
 		return baseURL
 	}
 	if !strings.HasSuffix(u.Path, "/") {
@@ -265,4 +201,81 @@ func parseMfaTriggered(body []byte, headers map[string]string) (foodora.MfaChall
 		return foodora.MfaChallenge{}, false
 	}
 	return ch, true
+}
+
+func runAuthScriptReal(ctx context.Context, td, scriptPath, outPath string, input []byte, opts PasswordOptions, timeout time.Duration, playwright string) (scriptOutput, error) {
+	if _, err := exec.LookPath("node"); err != nil {
+		return scriptOutput{}, errors.New("browserauth: node not found")
+	}
+	if _, err := exec.LookPath("npm"); err != nil {
+		return scriptOutput{}, errors.New("browserauth: npm not found")
+	}
+
+	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	install := exec.CommandContext(cmdCtx, "npm", "install", "--silent", "--no-progress", "--no-fund", "--no-audit", playwright) //nolint:gosec
+	install.Dir = td
+	install.Stdout = io.Discard
+	if opts.LogWriter != nil {
+		install.Stderr = opts.LogWriter
+	} else {
+		install.Stderr = io.Discard
+	}
+	install.Env = append(os.Environ(),
+		"npm_config_loglevel=error",
+	)
+	if err := install.Run(); err != nil {
+		return scriptOutput{}, fmt.Errorf("browserauth: npm install %s: %w", playwright, err)
+	}
+
+	playwrightBin := filepath.Join(td, "node_modules", ".bin", "playwright")
+	if runtime.GOOS == "windows" {
+		playwrightBin += ".cmd"
+	}
+	installBrowsers := exec.CommandContext(cmdCtx, playwrightBin, "install", "chromium") //nolint:gosec
+	installBrowsers.Dir = td
+	installBrowsers.Stdout = io.Discard
+	if opts.LogWriter != nil {
+		installBrowsers.Stderr = opts.LogWriter
+	} else {
+		installBrowsers.Stderr = io.Discard
+	}
+	installBrowsers.Env = append(os.Environ(),
+		"npm_config_loglevel=error",
+	)
+	if err := installBrowsers.Run(); err != nil {
+		return scriptOutput{}, fmt.Errorf("browserauth: playwright install chromium: %w", err)
+	}
+
+	cmd := exec.CommandContext(cmdCtx, "node", scriptPath) //nolint:gosec
+	cmd.Dir = td
+	cmd.Env = append(os.Environ(),
+		"ORDERCLI_OUTPUT_PATH="+outPath,
+		"FOODCLI_OUTPUT_PATH="+outPath,
+		"FOODORACLI_OUTPUT_PATH="+outPath, // legacy
+		"npm_config_loglevel=error",
+	)
+	cmd.Stdin = bytes.NewReader(input)
+	cmd.Stdout = io.Discard
+	if opts.LogWriter != nil {
+		cmd.Stderr = opts.LogWriter
+	} else {
+		cmd.Stderr = io.Discard
+	}
+
+	if err := cmd.Run(); err != nil {
+		return scriptOutput{}, fmt.Errorf("browserauth: node run: %w", err)
+	}
+
+	ob, err := os.ReadFile(outPath)
+	if err != nil {
+		return scriptOutput{}, fmt.Errorf("browserauth: missing output: %w", err)
+	}
+
+	var out scriptOutput
+	if err := json.Unmarshal(ob, &out); err != nil {
+		return scriptOutput{}, fmt.Errorf("browserauth: decode output: %w", err)
+	}
+	return out, nil
 }
