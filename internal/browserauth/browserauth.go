@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -112,6 +113,25 @@ func OAuthTokenPassword(ctx context.Context, req foodora.OAuthPasswordRequest, o
 	)
 	if err := install.Run(); err != nil {
 		return foodora.AuthToken{}, nil, Session{}, fmt.Errorf("browserauth: npm install %s: %w", pw, err)
+	}
+
+	playwrightBin := filepath.Join(td, "node_modules", ".bin", "playwright")
+	if runtime.GOOS == "windows" {
+		playwrightBin += ".cmd"
+	}
+	installBrowsers := exec.CommandContext(cmdCtx, playwrightBin, "install", "chromium") //nolint:gosec
+	installBrowsers.Dir = td
+	installBrowsers.Stdout = io.Discard
+	if opts.LogWriter != nil {
+		installBrowsers.Stderr = opts.LogWriter
+	} else {
+		installBrowsers.Stderr = io.Discard
+	}
+	installBrowsers.Env = append(os.Environ(),
+		"npm_config_loglevel=error",
+	)
+	if err := installBrowsers.Run(); err != nil {
+		return foodora.AuthToken{}, nil, Session{}, fmt.Errorf("browserauth: playwright install chromium: %w", err)
 	}
 
 	cmd := exec.CommandContext(cmdCtx, "node", scriptPath) //nolint:gosec
