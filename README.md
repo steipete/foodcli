@@ -1,54 +1,58 @@
-# foodcli
+# ordercli
 
-Go CLI: login to foodora + show active order status.
+Go CLI: multi-provider food order history + status.
 
-Status: early prototype. API details reverse-engineered from an Android XAPK (`25.44.0`).
+Providers:
+- `foodora` (working)
+- `deliveroo` (basic/WIP; requires `DELIVEROO_BEARER_TOKEN`)
 
 ## Build
 
 ```sh
 go test ./...
-go build ./cmd/foodcli
+go build ./cmd/ordercli
 ```
 
-## Configure country / base URL
+## foodora
+
+### Configure country / base URL
 
 Bundled presets (from the APK):
 
 ```sh
-./foodcli countries
-./foodcli config set --country HU
-./foodcli config set --country AT
-./foodcli config show
+./ordercli foodora countries
+./ordercli foodora config set --country HU
+./ordercli foodora config set --country AT
+./ordercli foodora config show
 ```
 
 Manual:
 
 ```sh
-./foodcli config set --base-url https://hu.fd-api.com/api/v5/ --global-entity-id NP_HU --target-iso HU
+./ordercli foodora config set --base-url https://hu.fd-api.com/api/v5/ --global-entity-id NP_HU --target-iso HU
 ```
 
-## Login
+### Login
 
-`oauth2/token` needs a `client_secret` (the app fetches it via remote config). `foodcli` auto-fetches it on first use and caches it locally.
+`oauth2/token` needs a `client_secret` (the app fetches it via remote config). `ordercli` auto-fetches it on first use and caches it locally.
 
 Optional override (keeps secrets out of shell history):
 
 ```sh
 export FOODORA_CLIENT_SECRET='...'
-./foodcli login --email you@example.com --password-stdin
+./ordercli foodora login --email you@example.com --password-stdin
 ```
 
-If MFA triggers and you're running in a TTY, `foodcli` prompts for the OTP code and retries automatically. Otherwise it stores the MFA token locally and prints a safe retry command (`--otp <CODE>`).
+If MFA triggers and you're running in a TTY, `ordercli` prompts for the OTP code and retries automatically. Otherwise it stores the MFA token locally and prints a safe retry command (`--otp <CODE>`).
 
 ### Client headers
 
-Some regions (e.g. Austria/mjam `mj.fd-api.com`) expect app-style headers like `X-FP-API-KEY` / `App-Name` / app `User-Agent`. `foodcli` uses an app-like header profile for `AT` by default.
+Some regions (e.g. Austria/mjam `mj.fd-api.com`) expect app-style headers like `X-FP-API-KEY` / `App-Name` / app `User-Agent`. `ordercli` uses an app-like header profile for `AT` by default.
 
 For corporate flows, you can override the OAuth `client_id`:
 
 ```sh
-./foodcli login --email you@example.com --client-id corp_android --password-stdin
+./ordercli foodora login --email you@example.com --client-id corp_android --password-stdin
 ```
 
 ### Cloudflare / bot protection
@@ -58,7 +62,7 @@ Some regions (e.g. Austria/mjam `mj.fd-api.com`) may return Cloudflare HTML (`HT
 Use an interactive Playwright session (you solve the challenge in the opened browser window; no auto-bypass):
 
 ```sh
-./foodcli login --email you@example.com --password-stdin --browser
+./ordercli foodora login --email you@example.com --password-stdin --browser
 ```
 
 Prereqs: `node` + `npx` available. First run may download Playwright + Chromium.
@@ -66,7 +70,7 @@ Prereqs: `node` + `npx` available. First run may download Playwright + Chromium.
 Tip: use a persistent profile to keep browser cookies/storage between runs (reduces re-challenges):
 
 ```sh
-./foodcli login --email you@example.com --password-stdin --browser --browser-profile "$HOME/Library/Application Support/foodcli/browser-profile"
+./ordercli foodora login --email you@example.com --password-stdin --browser --browser-profile "$HOME/Library/Application Support/ordercli/browser-profile"
 ```
 
 ### Import cookies from Chrome (no browser run)
@@ -74,14 +78,14 @@ Tip: use a persistent profile to keep browser cookies/storage between runs (redu
 If you already solved bot protection / logged in in Chrome, you can import the cookies for the current `base_url` host:
 
 ```sh
-./foodcli cookies chrome --profile "Default"
-./foodcli orders
+./ordercli foodora cookies chrome --profile "Default"
+./ordercli foodora orders
 ```
 
 If the bot cookies live on the website domain (e.g. `https://www.foodora.at/`), import from there and store them for the API host:
 
 ```sh
-./foodcli cookies chrome --url https://www.foodora.at/ --profile "Default"
+./ordercli foodora cookies chrome --url https://www.foodora.at/ --profile "Default"
 ```
 
 If you have multiple profiles, try `--profile "Profile 1"` (or pass a profile path / Cookies DB via `--cookie-path`).
@@ -91,21 +95,30 @@ If you have multiple profiles, try `--profile "Profile 1"` (or pass a profile pa
 If you’re logged in on the website in Chrome, you can import `refresh_token` + `device_token` and then refresh to an API access token:
 
 ```sh
-./foodcli session chrome --url https://www.foodora.at/ --profile "Default"
-./foodcli session refresh --client-id android
-./foodcli history
+./ordercli foodora session chrome --url https://www.foodora.at/ --profile "Default"
+./ordercli foodora session refresh --client-id android
+./ordercli foodora history
 ```
 If `session refresh` errors with “refresh token … not found”, that site session isn’t valid for your configured `base_url` (common for some regions).
 
-## Orders
+### Orders
 
 ```sh
-./foodcli orders
-./foodcli orders --watch
-./foodcli history
-./foodcli history --limit 50
-./foodcli history show <orderCode>
-./foodcli order <orderCode>
+./ordercli foodora orders
+./ordercli foodora orders --watch
+./ordercli foodora history
+./ordercli foodora history --limit 50
+./ordercli foodora history show <orderCode>
+./ordercli foodora order <orderCode>
+```
+
+## deliveroo (WIP)
+
+Requires a valid bearer token (no bypass):
+
+```sh
+export DELIVEROO_BEARER_TOKEN='...'
+./ordercli deliveroo history
 ```
 
 ## Safety

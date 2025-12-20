@@ -3,7 +3,7 @@
 ## 0.1.0 (Unreleased)
 
 - Initial CLI (`login`, `orders`, `order`, `config`, `countries`)
-- Rename project to `foodcli`
+- Rename project to `ordercli` + provider-first commands (`ordercli <provider> ...`)
 - Past orders (`history` via `orders/order_history`)
 - Historical order details (`history show <orderCode>`)
 - Auto-fetch/cache OAuth `client_secret` from Firebase Remote Config
@@ -14,3 +14,4 @@
 - Persistent Playwright profile support (`--browser-profile`)
 - `--config` flag works (use separate config files for testing)
 - OAuth `--client-id` override (e.g. `corp_android`)
+- Deliveroo (basic/WIP): `deliveroo history` (requires `DELIVEROO_BEARER_TOKEN`)
