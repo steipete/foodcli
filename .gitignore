@@ -1,9 +1,13 @@
 .DS_Store
 
 # binaries
-foodcli
-foodoracli
-ordercli
+/foodcli
+/foodoracli
+/ordercli
+
+# keep source under cmd/
+!cmd/
+!cmd/**/*
 
 # Go
 *.test
